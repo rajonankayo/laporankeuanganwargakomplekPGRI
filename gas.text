@@ -1,0 +1,73 @@
+function doGet(e) {
+  const action = e?.parameter?.action || '';
+
+  if (action === 'getData') {
+    try {
+      const sheet = SpreadsheetApp.getActiveSheet();
+      const data = sheet.getDataRange().getValues();
+
+      // Cek jika hanya ada header atau kosong
+      if (data.length <= 1) {
+        return createJsonResponse({ success: true, data: [] });
+      }
+
+      // Ambil data setelah header
+      const transactions = data.slice(1).map(row => ({
+        id: row[0] || '',
+        date: row[1] || '',
+        description: row[2] || '',
+        masuk: row[3] || 0,
+        keluar: row[4] || 0,
+        saldo: row[5] || 0
+      }));
+
+      return createJsonResponse({ success: true, data: transactions });
+
+    } catch (error) {
+      return createJsonResponse({ success: false, message: error.toString() });
+    }
+  }
+
+  // Default response jika action tidak dikenali
+  return createJsonResponse({
+    success: true,
+    message: 'Google Apps Script is working'
+  });
+}
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    
+    if (data.action === 'saveData') {
+      // Simpan data.data ke Google Sheets
+      const sheet = SpreadsheetApp.getActiveSheet();
+      
+      // Clear existing data (optional)
+      sheet.clear();
+      
+      // Add headers
+      sheet.getRange(1, 1, 1, 6).setValues([
+        ['ID', 'Tanggal', 'Keterangan', 'Masuk', 'Keluar', 'Saldo']
+      ]);
+      
+      // Add data
+      if (data.data && data.data.length > 0) {
+        const values = data.data.map(row => [
+          row.id, row.date, row.description, row.masuk, row.keluar, row.saldo
+        ]);
+        sheet.getRange(2, 1, values.length, 6).setValues(values);
+      }
+      
+      return ContentService.createTextOutput(JSON.stringify({
+        success: true,
+        message: 'Data berhasil disimpan'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      message: error.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
